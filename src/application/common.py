@@ -8,7 +8,7 @@ def enum(**params):
 STEPS = enum(RECOMMEND="recommend", ANALYSIS="analysis", FIND="find", SIMILAR="similar")
 
 STEPS_CHOICES = [STEPS.RECOMMEND, STEPS.ANALYSIS, STEPS.FIND, STEPS.SIMILAR]
-STANDARD_STEPS = [STEPS.RECOMMEND, STEPS.ANALYSIS]
+STANDARD_STEPS = [STEPS.RECOMMEND, STEPS.ANALYSIS, STEPS.FIND]
 
 SUPPORTED_FORMAT = ".csv"
 
@@ -32,6 +32,7 @@ class Environment:
         self.os = get_current_os()
         self.recommendations_limit = int(env.get("RECOMMENDATIONS_LIMIT", 10))
         self.precision = int(env.get("PRECISION", 200))
+        self.api_key = env.get("API_KEY")
 
     @staticmethod
     def from_env(env):

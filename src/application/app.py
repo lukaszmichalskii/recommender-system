@@ -22,8 +22,9 @@ from application.files_operations import (
     save_model_evaluation,
     save_model_learn_history,
     get_model_evaluation,
-    get_model_learn_history,
+    get_model_learn_history, get_recommendations,
 )
+from application.google_find import google_search
 from collaborative_filtering.cf_recommender import CFRecommender
 from collaborative_filtering.cf_utils import load_movies
 
@@ -114,12 +115,12 @@ def run_app(
         debug = False
         if args.verbose:
             debug = True
-        start = time.time()
+        start_rs = time.time()
         recommendations, predictions, history = cf_recommender.recommend(
             ratings, environment.precision, debug=debug
         )
-        end = time.time()
-        logger.info(f"Recommendation system execution time: {end - start:.2f}")
+        end_rs = time.time()
+        logger.info(f"Recommendation system execution time: {end_rs - start_rs:.2f}")
 
         rcmd_thread = threading.Thread(
             target=save_recommendations,
@@ -175,6 +176,29 @@ def run_app(
         )
         threads_pool.append((analysis_thread, "analysis_thread"))
         analysis_thread.start()
+
+    def find_step():
+        for thread, thread_id in threads_pool:
+            if thread_id == "rcmd_thread" and thread.is_alive():
+                thread.join()
+
+        rcmd_data = get_recommendations(rcmd_file, rcmd_filelock)
+
+        info = []
+        call_threads_pool = []
+        for i, movie in enumerate(rcmd_data):
+            call_thread = ThreadExt(
+                target=google_search, args=(f"{movie}, Movie", environment.api_key)
+            )
+            call_threads_pool.append((call_thread, movie))
+            call_thread.start()
+
+        for thread, movie in call_threads_pool:
+            url = thread.join()
+            info.append({"movie": movie, "url": url})
+
+        for i in info:
+            print(f"Movie: {i.get('movie')}, URL: {i.get('url')}")
 
     start = time.time()
     try:
@@ -241,6 +265,12 @@ def run_app(
         if STEPS.ANALYSIS in args.only:
             logger.info("Starting recommendation analysis...")
             analysis_step()
+
+        if STEPS.FIND in args.only:
+            if environment.api_key is None:
+                logger.error("API_KEY not provided skipping FIND step.")
+            else:
+                find_step()
 
         logger.info("Finishing IO bound threads...")
         threads_join()

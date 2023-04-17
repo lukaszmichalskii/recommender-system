@@ -1,3 +1,6 @@
+import pandas as pd
+
+
 class MalformedFileFormat(Exception):
     pass
 
@@ -85,3 +88,15 @@ def get_model_learn_history(file, lock):
                 history.append((int(iteration), int(loss)))
                 data = fd.readline().strip()
         return history
+
+
+def get_recommendations(file, lock):
+    with lock:
+        df = pd.read_csv(
+            file,
+            header=0,
+            index_col=0,
+            delimiter=",",
+            quotechar='"',
+        )
+        return df["Movie"].to_list()
