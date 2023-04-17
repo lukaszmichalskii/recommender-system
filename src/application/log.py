@@ -1,7 +1,10 @@
 import logging
+import tensorflow as tf
+
+tf.get_logger().setLevel("ERROR")
 
 
-def setup_logger(loggername="SKG", filename="execution.log") -> logging.Logger:
+def setup_logger(loggername="CFRS", filename="execution.log") -> logging.Logger:
     logger = logging.Logger(loggername)
     logger.setLevel(logging.DEBUG)
     formatter = logging.Formatter(

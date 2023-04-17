@@ -10,11 +10,24 @@ import typing
 
 from filelock import FileLock
 
-from application.common import STEPS, STEPS_CHOICES, STANDARD_STEPS, SUPPORTED_FORMAT
-from application.files_operations import get_ratings, MalformedFileFormat, save_recommendations, save_model_evaluation
+from application.common import (
+    STEPS,
+    STEPS_CHOICES,
+    STANDARD_STEPS,
+    SUPPORTED_FORMAT,
+)
+from application.files_operations import (
+    get_ratings,
+    MalformedFileFormat,
+    save_recommendations,
+    save_model_evaluation,
+)
 from collaborative_filtering.cf_recommender import CFRecommender
 from collaborative_filtering.cf_utils import load_movies
-from src.application import common, log
+from application import common, log
+
+
+threads_pool = []
 
 
 def get_help_epilog():
@@ -44,6 +57,35 @@ Examples:
 More info: <https://github.com/lukaszmichalskii/recommender-system>"""
 
 
+def threads_join():
+    if len(threading.enumerate()) > 1:
+        for thread in threads_pool:
+            thread.join()
+
+
+def sigint_dcrt(runner):
+    def sigint_exit_proc(*args, **kwargs):
+        start = time.time()
+        try:
+            exit_code = runner(*args, **kwargs)
+            threads_join()
+            end = time.time()
+            logging.getLogger("CFRS").info(f"Execution time: {end-start:.2f}")
+            return exit_code
+        except KeyboardInterrupt:
+            logging.getLogger("CFRS").error(
+                f"SIGINT interruption, finishing IO non daemon threads..."
+            )
+            threads_join()
+            end = time.time()
+            logging.getLogger("CFRS").info(f"Execution time: {end - start:.2f}")
+            logging.getLogger("CFRS").info(f"App finished with exit code 3")
+            return 3
+
+    return sigint_exit_proc
+
+
+@sigint_dcrt
 def run_app(
     args: argparse.Namespace,
     argv: typing.List[str],
@@ -51,18 +93,18 @@ def run_app(
     environment: common.Environment,
 ) -> int:
     def recommend_step():
-        logger.info(
-            f"CFR engine starting..."
-        )
+        logger.info(f"CFR engine starting...")
         debug = False
         if args.verbose:
             debug = True
         start = time.time()
-        recommendations, predictions, *info = cf_recommender.recommend(ratings, environment.precision, debug=debug)
+        recommendations, predictions, *info = cf_recommender.recommend(
+            ratings, environment.precision, debug=debug
+        )
         end = time.time()
         logger.info(f"Recommendation system execution time: {end - start:.2f}")
 
-        recommendation_results = output.joinpath('recommendations.csv')
+        recommendation_results = output.joinpath("recommendations.csv")
         rcmd_thread = threading.Thread(
             target=save_recommendations,
             args=(
@@ -71,13 +113,14 @@ def run_app(
                 recommendations,
                 cf_recommender.rated,
                 movies_list,
-                environment.recommendations_limit if environment.recommendations_limit < len(movies_list) else len(
-                    movies_list),
-                FileLock(recommendation_results)
-            )
+                environment.recommendations_limit
+                if environment.recommendations_limit < len(movies_list)
+                else len(movies_list),
+                FileLock(recommendation_results),
+            ),
         )
 
-        model_evaluation_results = output.joinpath('recommendations.csv')
+        model_evaluation_results = output.joinpath("model_evaluation.csv")
         mdeval_thread = threading.Thread(
             target=save_model_evaluation,
             args=(
@@ -85,8 +128,8 @@ def run_app(
                 predictions,
                 cf_recommender.ratings,
                 movies_list,
-                FileLock(model_evaluation_results)
-            )
+                FileLock(model_evaluation_results),
+            ),
         )
 
         threads_pool.append(rcmd_thread)
@@ -120,16 +163,20 @@ def run_app(
         logger.info("App finished with exit code 1")
         return 1
     if ratings_file.suffix != SUPPORTED_FORMAT:
-        logger.info(f"Unsupported ratings file format, required {SUPPORTED_FORMAT} files only.")
+        logger.error(
+            f"Unsupported ratings file format, required {SUPPORTED_FORMAT} files only."
+        )
         logger.info("App finished with exit code 1")
         return 1
 
     try:
         ratings = get_ratings(ratings_file)
     except MalformedFileFormat as e:
-        logger.info(f"Error during user ratings reading. Details: {str(e)}")
+        logger.error(f"Error during user ratings reading. Details: {str(e)}")
         logger.info("App finished with exit code 1")
-        print("Provided ratings file does not follow required format for recommendation engine calculations.")
+        print(
+            "Provided ratings file does not follow required format for recommendation engine calculations."
+        )
         return 1
 
     logger.info("Loading movies dataset...")
@@ -139,16 +186,8 @@ def run_app(
     logger.info("Initialize collaboration filtering recommendation engine...")
     cf_recommender = CFRecommender()
 
-    threads_pool = []
-
     if STEPS.RECOMMEND in args.only:
         recommend_step()
-
-    print("Heavy calculations")
-    time.sleep(20)
-
-    for thread in threads_pool:
-        thread.join()
 
     logger.info("App finished with exit code 0")
     return 0
@@ -190,13 +229,13 @@ format""",
     'recommend' - find recommendations based on ratings pointed by --ratings
     'find' - find information about recommendations
     'similar' - find top matching movies to best rated one
-    """
+    """,
     )
     parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
-        help="Display extended information about system execution."
+        help="Display extended information about system execution.",
     )
     parser.epilog = get_help_epilog()
     return run_app(parser.parse_args(argv[1:]), argv, logger, environment)

@@ -25,7 +25,7 @@ class CFRecommender:
         self.update_ratings()
         X, W, b, *info = self.cf_learn(iterations=iterations, lambda_=1, debug=debug)
         predictions = self.predict(X, W, b)
-        ix = tf.argsort(predictions, direction='DESCENDING')
+        ix = tf.argsort(predictions, direction="DESCENDING")
         return ix, predictions, info
 
     def collect_ratings(self, user_ratings):
@@ -38,9 +38,13 @@ class CFRecommender:
     def cf_learn(self, iterations=200, lambda_=1, debug=False):
         num_movies, num_users = self.Y.shape
         num_features = 100
-        W = tf.Variable(tf.random.normal((num_users, num_features), dtype=tf.float64), name='W')
-        X = tf.Variable(tf.random.normal((num_movies, num_features), dtype=tf.float64), name='X')
-        b = tf.Variable(tf.random.normal((1, num_users), dtype=tf.float64), name='b')
+        W = tf.Variable(
+            tf.random.normal((num_users, num_features), dtype=tf.float64), name="W"
+        )
+        X = tf.Variable(
+            tf.random.normal((num_movies, num_features), dtype=tf.float64), name="X"
+        )
+        b = tf.Variable(tf.random.normal((1, num_users), dtype=tf.float64), name="b")
         optimizer = keras.optimizers.Adam(learning_rate=1e-1)
 
         history = []

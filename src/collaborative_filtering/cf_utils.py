@@ -28,11 +28,11 @@ def load_movies():
         returns df (pandas.DataFrame) with and index of movies in the order they are in the ratings matrix (Y)
     """
     df = pd.read_csv(
-        RESOURCES.joinpath('small_movie_list.csv'),
+        RESOURCES.joinpath("small_movie_list.csv"),
         header=0,
         index_col=0,
         delimiter=",",
-        quotechar='"'
+        quotechar='"',
     )
     movies = df["title"].to_list()
     return movies, df

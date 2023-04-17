@@ -11,3 +11,7 @@ class TestCommon(unittest.TestCase):
             environment.os,
             "linux" if sys.platform in {"linux", "linux2"} else "windows",
         )
+
+    def test_recommendations_limit_set_via_env(self):
+        environment = Environment.from_env({"RECOMMENDATIONS_LIMIT": "100"})
+        self.assertEqual(100, environment.recommendations_limit)
