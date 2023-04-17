@@ -22,7 +22,8 @@ from application.files_operations import (
     save_model_evaluation,
     save_model_learn_history,
     get_model_evaluation,
-    get_model_learn_history, get_recommendations,
+    get_model_learn_history,
+    get_recommendations,
 )
 from application.google_find import google_search
 from collaborative_filtering.cf_recommender import CFRecommender
