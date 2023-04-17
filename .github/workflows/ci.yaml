@@ -2,7 +2,7 @@ name: CI
 on: [push]
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
       - name: install dependencies
@@ -11,12 +11,15 @@ jobs:
       - run: python3 -m black --diff --check $(git ls-files '*.py')
       - run: python3 -m pylint --disable=all --enable=unused-import $(git ls-files '*.py')
   tests:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v3
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.8'
       - name: install dependencies
         run: |
-          sudo apt-get update && sudo apt-get install python3-pip && python3 -m pip install -r requirements.txt
+          sudo apt-get update && sudo apt-get install python3-pip && python3 -m pip install https://storage.googleapis.com/tensorflow/linux/cpu/tensorflow_cpu-2.12.0-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl && python3 -m pip install -r build_requirements.txt
       - name: test
         run: |
-          python3 -m unittest discover test
+          python3 -m unittest discover .
