@@ -23,10 +23,10 @@ class CFRecommender:
     def recommend(self, ratings, iterations, debug=False):
         self.collect_ratings(ratings)
         self.update_ratings()
-        X, W, b, *info = self.cf_learn(iterations=iterations, lambda_=1, debug=debug)
+        X, W, b, history = self.cf_learn(iterations=iterations, lambda_=1, debug=debug)
         predictions = self.predict(X, W, b)
         ix = tf.argsort(predictions, direction="DESCENDING")
-        return ix, predictions, info
+        return ix, predictions, history
 
     def collect_ratings(self, user_ratings):
         self.ratings = np.zeros(self.num_movies)
@@ -48,15 +48,16 @@ class CFRecommender:
         optimizer = keras.optimizers.Adam(learning_rate=1e-1)
 
         history = []
-        for iter in range(iterations):
+        for iter in range(1, iterations + 1):
             with tf.GradientTape() as tape:
                 cost_value = cf_cost_func(X, W, b, self.Y_norm, self.R, lambda_)
             grads = tape.gradient(cost_value, [X, W, b])
             optimizer.apply_gradients(zip(grads, [X, W, b]))
 
-            if iter % 20 == 0 and debug:
-                print(f"Training loss at iteration {iter}: {cost_value:0.1f}")
-            history.append((iter, cost_value))
+            if iter % 20 == 0 or iter == 1:
+                if debug:
+                    print(f"Training loss at iteration {iter}: {cost_value:0.1f}")
+                history.append((iter, cost_value))
 
         return X, W, b, history
 

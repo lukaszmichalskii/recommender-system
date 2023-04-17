@@ -5,11 +5,10 @@ import pathlib
 import sys
 import threading
 import time
-
 import typing
 
-from filelock import FileLock
-
+from analysis.analyze import analyze
+from application import common, log
 from application.common import (
     STEPS,
     STEPS_CHOICES,
@@ -21,10 +20,28 @@ from application.files_operations import (
     MalformedFileFormat,
     save_recommendations,
     save_model_evaluation,
+    save_model_learn_history,
+    get_model_evaluation,
+    get_model_learn_history,
 )
 from collaborative_filtering.cf_recommender import CFRecommender
 from collaborative_filtering.cf_utils import load_movies
-from application import common, log
+
+
+class ThreadExt(threading.Thread):
+    def __init__(
+        self, group=None, target=None, name=None, args=(), kwargs={}, Verbose=None
+    ):
+        threading.Thread.__init__(self, group, target, name, args, kwargs)
+        self._return = None
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
+
+    def join(self, *args):
+        threading.Thread.join(self, *args)
+        return self._return
 
 
 threads_pool = []
@@ -59,8 +76,9 @@ More info: <https://github.com/lukaszmichalskii/recommender-system>"""
 
 def threads_join():
     if len(threading.enumerate()) > 1:
-        for thread in threads_pool:
-            thread.join()
+        for thread, _ in threads_pool:
+            if thread in threading.enumerate():
+                thread.join()
 
 
 def sigint_dcrt(runner):
@@ -97,17 +115,16 @@ def run_app(
         if args.verbose:
             debug = True
         start = time.time()
-        recommendations, predictions, *info = cf_recommender.recommend(
+        recommendations, predictions, history = cf_recommender.recommend(
             ratings, environment.precision, debug=debug
         )
         end = time.time()
         logger.info(f"Recommendation system execution time: {end - start:.2f}")
 
-        recommendation_results = output.joinpath("recommendations.csv")
         rcmd_thread = threading.Thread(
             target=save_recommendations,
             args=(
-                recommendation_results,
+                rcmd_file,
                 predictions,
                 recommendations,
                 cf_recommender.rated,
@@ -115,27 +132,49 @@ def run_app(
                 environment.recommendations_limit
                 if environment.recommendations_limit < len(movies_list)
                 else len(movies_list),
-                FileLock(recommendation_results),
+                rcmd_filelock,
             ),
         )
 
-        model_evaluation_results = output.joinpath("model_evaluation.csv")
         mdeval_thread = threading.Thread(
             target=save_model_evaluation,
             args=(
-                model_evaluation_results,
+                mdeval_file,
                 predictions,
                 cf_recommender.ratings,
                 movies_list,
-                FileLock(model_evaluation_results),
+                mdeval_filelock,
             ),
         )
 
-        threads_pool.append(rcmd_thread)
-        threads_pool.append(mdeval_thread)
+        mdlearn_hist_thread = threading.Thread(
+            target=save_model_learn_history,
+            args=(mdhist_file, history, mdhist_filelock),
+        )
+
+        threads_pool.append((rcmd_thread, "rcmd_thread"))
+        threads_pool.append((mdeval_thread, "mdeval_thread"))
+        threads_pool.append((mdlearn_hist_thread, "mdlearn_hist_thread"))
 
         rcmd_thread.start()
         mdeval_thread.start()
+        mdlearn_hist_thread.start()
+
+    def analysis_step():
+        for thread, thread_id in threads_pool:
+            if (
+                thread_id == "mdeval_thread" or thread_id == "mdlearn_hist_thread"
+            ) and thread.is_alive():
+                thread.join()
+
+        mdeval_data = get_model_evaluation(mdeval_file, mdeval_filelock)
+        history = get_model_learn_history(mdhist_file, mdhist_filelock)
+
+        analysis_thread = threading.Thread(
+            target=analyze, args=(mdeval_data, history, output)
+        )
+        threads_pool.append((analysis_thread, "analysis_thread"))
+        analysis_thread.start()
 
     start = time.time()
     try:
@@ -189,9 +228,21 @@ def run_app(
         logger.info("Initialize collaboration filtering recommendation engine...")
         cf_recommender = CFRecommender()
 
+        rcmd_file = output.joinpath("recommendations.csv")
+        rcmd_filelock = threading.Lock()
+        mdeval_file = output.joinpath("model_evaluation.csv")
+        mdeval_filelock = threading.Lock()
+        mdhist_file = output.joinpath("cf_learn.csv")
+        mdhist_filelock = threading.Lock()
+
         if STEPS.RECOMMEND in args.only:
             recommend_step()
 
+        if STEPS.ANALYSIS in args.only:
+            logger.info("Starting recommendation analysis...")
+            analysis_step()
+
+        logger.info("Finishing IO bound threads...")
         threads_join()
         end = time.time()
         logger.info(f"Execution time: {end - start:.2f}")
