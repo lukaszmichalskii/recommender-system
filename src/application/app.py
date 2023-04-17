@@ -85,7 +85,6 @@ def sigint_dcrt(runner):
     return sigint_exit_proc
 
 
-@sigint_dcrt
 def run_app(
     args: argparse.Namespace,
     argv: typing.List[str],
@@ -138,59 +137,74 @@ def run_app(
         rcmd_thread.start()
         mdeval_thread.start()
 
-    if environment.os != "linux":
-        logger.warning(
-            f"You are using toolkit on {environment.os}. Some functionalities may not work correctly"
-        )
-    logger.info(
-        f"pythonApp: {sys.executable} argv: {argv} {environment.to_info_string()}"
-    )
-    if os.path.exists(args.output) and os.listdir(args.output):
-        logger.error(f"Output directory {args.output} is not empty.")
-        logger.info("App finished with exit code 1")
-        return 1
-
-    output = pathlib.Path(args.output)
-    if not output.exists():
-        logger.info(
-            f"Path '{str(output.absolute())}' not exist, creating results storage space {output.absolute()}..."
-        )
-        output.mkdir()
-
-    ratings_file = pathlib.Path(args.ratings)
-    if not ratings_file.exists():
-        logger.info(f"Ratings file '{str(ratings_file)}' not exist.")
-        logger.info("App finished with exit code 1")
-        return 1
-    if ratings_file.suffix != SUPPORTED_FORMAT:
-        logger.error(
-            f"Unsupported ratings file format, required {SUPPORTED_FORMAT} files only."
-        )
-        logger.info("App finished with exit code 1")
-        return 1
-
+    start = time.time()
     try:
-        ratings = get_ratings(ratings_file)
-    except MalformedFileFormat as e:
-        logger.error(f"Error during user ratings reading. Details: {str(e)}")
-        logger.info("App finished with exit code 1")
-        print(
-            "Provided ratings file does not follow required format for recommendation engine calculations."
+        if environment.os != "linux":
+            logger.warning(
+                f"You are using toolkit on {environment.os}. Some functionalities may not work correctly"
+            )
+        logger.info(
+            f"pythonApp: {sys.executable} argv: {argv} {environment.to_info_string()}"
         )
-        return 1
+        if os.path.exists(args.output) and os.listdir(args.output):
+            logger.error(f"Output directory {args.output} is not empty.")
+            logger.info("App finished with exit code 1")
+            return 1
 
-    logger.info("Loading movies dataset...")
-    movies_list, movies_df = load_movies()
-    logger.info(f"Dataset loaded successfully: {len(movies_list)} movies available.")
+        output = pathlib.Path(args.output)
+        if not output.exists():
+            logger.info(
+                f"Path '{str(output.absolute())}' not exist, creating results storage space {output.absolute()}..."
+            )
+            output.mkdir()
 
-    logger.info("Initialize collaboration filtering recommendation engine...")
-    cf_recommender = CFRecommender()
+        ratings_file = pathlib.Path(args.ratings)
+        if not ratings_file.exists():
+            logger.info(f"Ratings file '{str(ratings_file)}' not exist.")
+            logger.info("App finished with exit code 1")
+            return 1
+        if ratings_file.suffix != SUPPORTED_FORMAT:
+            logger.error(
+                f"Unsupported ratings file format, required {SUPPORTED_FORMAT} files only."
+            )
+            logger.info("App finished with exit code 1")
+            return 1
 
-    if STEPS.RECOMMEND in args.only:
-        recommend_step()
+        try:
+            ratings = get_ratings(ratings_file)
+        except MalformedFileFormat as e:
+            logger.error(f"Error during user ratings reading. Details: {str(e)}")
+            logger.info("App finished with exit code 1")
+            print(
+                "Provided ratings file does not follow required format for recommendation engine calculations."
+            )
+            return 1
 
-    logger.info("App finished with exit code 0")
-    return 0
+        logger.info("Loading movies dataset...")
+        movies_list, movies_df = load_movies()
+        logger.info(
+            f"Dataset loaded successfully: {len(movies_list)} movies available."
+        )
+
+        logger.info("Initialize collaboration filtering recommendation engine...")
+        cf_recommender = CFRecommender()
+
+        if STEPS.RECOMMEND in args.only:
+            recommend_step()
+
+        threads_join()
+        end = time.time()
+        logger.info(f"Execution time: {end - start:.2f}")
+        logger.info("App finished with exit code 0")
+        return 0
+
+    except KeyboardInterrupt:
+        logger.error(f"SIGINT interruption, finishing IO non daemon threads...")
+        threads_join()
+        end = time.time()
+        logger.info(f"Execution time: {end - start:.2f}")
+        logger.info(f"App finished with exit code 3")
+        return 3
 
 
 def main(argv: typing.List[str], logger=None, environment=None) -> int:
