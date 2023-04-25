@@ -74,3 +74,17 @@ class TestApp(unittest.TestCase):
                 ),
                 logger.messages,
             )
+
+    def test_skip_find_if_api_key_not_provided(self):
+        ratings = self.resources.joinpath("ratings.csv")
+        with mock_logger.MockLogger() as logger:
+            self.assertEqual(
+                0, self.main(["--ratings", str(ratings), "--output", str(self.temp)])
+            )
+            self.assertIn(
+                (
+                    "WARNING",
+                    "API_KEY not provided skipping FIND step.",
+                ),
+                logger.messages,
+            )

@@ -64,6 +64,9 @@ Environment variables:
                            Low PRECISION value provide less accurate recommendations with faster execution time.
                            Default precision was selected based on a lot of analysis and optimal value was determined  
                            Default: 200
+    CPU_THREADS          : Specifies how many cores should be utilized during application execution.
+                           Default: Use hyper-threading by count physical cores and threads that could be executed in 
+                           parallel on single core
                  
 Examples:
     Run system:
@@ -185,11 +188,13 @@ def run_app(
 
         rcmd_data = get_recommendations(rcmd_file, rcmd_filelock)
 
+        semaphore = threading.BoundedSemaphore(value=environment.cpu)
         info = []
         call_threads_pool = []
         for i, movie in enumerate(rcmd_data):
             call_thread = ThreadExt(
-                target=google_search, args=(f"{movie}, Movie", environment.api_key)
+                target=google_search,
+                args=(f"{movie}, Movie", semaphore, environment.api_key),
             )
             call_threads_pool.append((call_thread, movie))
             call_thread.start()
@@ -254,10 +259,12 @@ def run_app(
         cf_recommender = CFRecommender()
 
         rcmd_file = output.joinpath("recommendations.csv")
-        rcmd_filelock = threading.Lock()
         mdeval_file = output.joinpath("model_evaluation.csv")
-        mdeval_filelock = threading.Lock()
         mdhist_file = output.joinpath("cf_learn.csv")
+
+        # mutexes
+        rcmd_filelock = threading.Lock()
+        mdeval_filelock = threading.Lock()
         mdhist_filelock = threading.Lock()
 
         if STEPS.RECOMMEND in args.only:
@@ -269,7 +276,7 @@ def run_app(
 
         if STEPS.FIND in args.only:
             if environment.api_key is None:
-                logger.error("API_KEY not provided skipping FIND step.")
+                logger.warning("API_KEY not provided skipping FIND step.")
             else:
                 find_step()
 

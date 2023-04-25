@@ -1,3 +1,4 @@
+import multiprocessing
 from platform import platform
 
 
@@ -33,12 +34,13 @@ class Environment:
         self.recommendations_limit = int(env.get("RECOMMENDATIONS_LIMIT", 10))
         self.precision = int(env.get("PRECISION", 200))
         self.api_key = env.get("API_KEY")
+        self.cpu = int(env.get("CPU_THREADS", multiprocessing.cpu_count()))
 
     @staticmethod
     def from_env(env):
         return Environment(env)
 
     def to_info_string(self):
-        return "os: {}, recommendations limit: {}, precision: {}".format(
-            self.os, self.recommendations_limit, self.precision
+        return "OS: {}, threads: {}, recommendations limit: {}, precision: {}".format(
+            self.os, self.cpu, self.recommendations_limit, self.precision
         )
