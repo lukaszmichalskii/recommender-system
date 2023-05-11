@@ -105,7 +105,14 @@ def sigint_dcrt(runner):
             logging.getLogger("CFRS").info(f"App finished with exit code 3")
             return 3
 
-    return sigint_exit_proc
+    return
+
+
+def detailed_info_to_msg(info):
+    msg = ""
+    for i in info:
+        msg += f"\tMovie: {i.get('movie')}, URL: {i.get('url')}\n"
+    return msg[:-1]
 
 
 def run_app(
@@ -115,7 +122,7 @@ def run_app(
     environment: common.Environment,
 ) -> int:
     def recommend_step():
-        logger.info(f"CFR engine starting...")
+        logger.info(f"Collaborative-filtering engine starting...")
         debug = False
         if args.verbose:
             debug = True
@@ -124,7 +131,9 @@ def run_app(
             ratings, environment.precision, debug=debug
         )
         end_rs = time.time()
-        logger.info(f"Recommendation system execution time: {end_rs - start_rs:.2f}")
+        logger.info(
+            f"Collaborative-filtering recommendation system execution time: {end_rs - start_rs:.2f}"
+        )
 
         rcmd_thread = threading.Thread(
             target=save_recommendations,
@@ -203,8 +212,7 @@ def run_app(
             url = thread.join()
             info.append({"movie": movie, "url": url})
 
-        for i in info:
-            print(f"Movie: {i.get('movie')}, URL: {i.get('url')}")
+        logger.info(f"Find step results:\n{detailed_info_to_msg(info)}")
 
     start = time.time()
     try:
@@ -256,7 +264,7 @@ def run_app(
         )
 
         logger.info("Initialize collaboration filtering recommendation engine...")
-        cf_recommender = CFRecommender()
+        cf_recommender = CFRecommender(logger)
 
         rcmd_file = output.joinpath("recommendations.csv")
         mdeval_file = output.joinpath("model_evaluation.csv")
@@ -283,7 +291,7 @@ def run_app(
         logger.info("Finishing IO bound threads...")
         threads_join()
         end = time.time()
-        logger.info(f"Execution time: {end - start:.2f}")
+        logger.info(f"App execution time: {end - start:.2f}")
         logger.info("App finished with exit code 0")
         return 0
 
@@ -291,7 +299,7 @@ def run_app(
         logger.error(f"SIGINT interruption, finishing IO non daemon threads...")
         threads_join()
         end = time.time()
-        logger.info(f"Execution time: {end - start:.2f}")
+        logger.info(f"App execution time: {end - start:.2f}")
         logger.info(f"App finished with exit code 3")
         return 3
 

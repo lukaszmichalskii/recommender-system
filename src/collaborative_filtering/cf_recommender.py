@@ -6,11 +6,12 @@ from collaborative_filtering.cf_utils import load_ratings
 from collaborative_filtering.cost_function import cf_cost_func
 from collaborative_filtering.normalization import normalize_ratings
 
-tf.random.set_seed(1234)
+# tf.random.set_seed(1234)
 
 
 class CFRecommender:
-    def __init__(self):
+    def __init__(self, logger=None):
+        self.logger = logger
         self.Y, self.R = load_ratings()
         self.num_movies, self.num_users = self.Y.shape
         self.num_features = 100
@@ -55,8 +56,10 @@ class CFRecommender:
             optimizer.apply_gradients(zip(grads, [X, W, b]))
 
             if iter % 20 == 0 or iter == 1:
-                if debug:
-                    print(f"Training loss at iteration {iter}: {cost_value:0.1f}")
+                if debug and self.logger:
+                    self.logger.info(
+                        f"Training loss at iteration {iter}: {cost_value:0.1f}"
+                    )
                 history.append((iter, cost_value))
 
         return X, W, b, history
