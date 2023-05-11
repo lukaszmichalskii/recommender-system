@@ -8,6 +8,6 @@ if __name__ == "__main__":
                 *sys.version_info[:3]
             )
         )
-    import application.app
+    import src.application.app
 
-    sys.exit(application.app.main(sys.argv))
+    sys.exit(src.application.app.main(sys.argv))

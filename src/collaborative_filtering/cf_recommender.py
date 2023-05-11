@@ -2,9 +2,9 @@ import numpy as np
 import tensorflow as tf
 from tensorflow import keras
 
-from collaborative_filtering.cf_utils import load_ratings
-from collaborative_filtering.cost_function import cf_cost_func
-from collaborative_filtering.normalization import normalize_ratings
+from src.collaborative_filtering.cf_utils import load_ratings
+from src.collaborative_filtering.cost_function import cf_cost_func
+from src.collaborative_filtering.normalization import normalize_ratings
 
 # tf.random.set_seed(1234)
 

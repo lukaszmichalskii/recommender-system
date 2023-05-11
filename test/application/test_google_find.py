@@ -3,8 +3,8 @@ import os
 import threading
 import unittest
 
-from application.google_find import GoogleSearchError
-from application import google_find
+from src.application.google_find import GoogleSearchError
+from src.application import google_find
 
 
 class TestGoogleFind(unittest.TestCase):

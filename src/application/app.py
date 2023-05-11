@@ -7,15 +7,15 @@ import threading
 import time
 import typing
 
-from analysis.analyze import analyze
-from application import common, log
-from application.common import (
+from src.analysis.analyze import analyze
+from src.application import common, log
+from src.application.common import (
     STEPS,
     STEPS_CHOICES,
     STANDARD_STEPS,
     SUPPORTED_FORMAT,
 )
-from application.files_operations import (
+from src.application.files_operations import (
     get_ratings,
     MalformedFileFormat,
     save_recommendations,
@@ -25,9 +25,9 @@ from application.files_operations import (
     get_model_learn_history,
     get_recommendations,
 )
-from application.google_find import google_search
-from collaborative_filtering.cf_recommender import CFRecommender
-from collaborative_filtering.cf_utils import load_movies
+from src.application.google_find import google_search
+from src.collaborative_filtering.cf_recommender import CFRecommender
+from src.collaborative_filtering.cf_utils import load_movies
 
 
 class ThreadExt(threading.Thread):

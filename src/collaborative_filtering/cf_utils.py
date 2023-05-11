@@ -1,6 +1,6 @@
 import pandas as pd
 
-from config import ROOT
+from src.config import ROOT
 from numpy import loadtxt
 
 RESOURCES = ROOT.joinpath("docs/data")
